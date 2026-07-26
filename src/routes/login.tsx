@@ -33,12 +33,33 @@ function LoginPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-    setLoading(false);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
     if (error) {
+      setLoading(false);
       toast.error(error.message);
       return;
     }
+    // Enforce admin approval
+    const uid = data.user?.id;
+    if (uid) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("approval_status,rejected_reason")
+        .eq("id", uid)
+        .maybeSingle();
+      const status = profile?.approval_status ?? "pending";
+      if (status !== "approved") {
+        await supabase.auth.signOut();
+        setLoading(false);
+        if (status === "rejected") {
+          toast.error(profile?.rejected_reason || "Your account application was rejected.");
+        } else {
+          toast.error("Your account is awaiting admin approval. Please check back soon.");
+        }
+        return;
+      }
+    }
+    setLoading(false);
     toast.success("Welcome back!");
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect") || "/dashboard";
