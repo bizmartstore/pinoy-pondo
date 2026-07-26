@@ -101,7 +101,8 @@ function Admin() {
                 className={`w-full flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition ${
                   active ? "bg-gradient-primary text-white shadow-glow" : "text-white/70 hover:bg-white/5 hover:text-white"
                 }`}>
-                <Icon className="h-4 w-4" /> {n.label}
+                <Icon className="h-4 w-4" /> <span className="flex-1 text-left">{n.label}</span>
+                {n.badge ? <span className="rounded-full bg-accent text-secondary text-[10px] font-black px-2 py-0.5">{n.badge}</span> : null}
               </button>
             );
           })}
@@ -121,7 +122,7 @@ function Admin() {
               <button key={n.key} onClick={() => setTab(n.key)}
                 className={`shrink-0 text-xs font-semibold rounded-full px-3 py-1.5 border transition ${
                   tab === n.key ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-transparent"
-                }`}>{n.label}</button>
+                }`}>{n.label}{n.badge ? ` (${n.badge})` : ""}</button>
             ))}
           </div>
         </header>
@@ -143,6 +144,7 @@ function Admin() {
                   loans={loans}
                 />
               )}
+              {tab === "approvals" && <ApprovalsTab profiles={profiles} onChanged={reload} />}
               {tab === "loans" && <LoansTab loans={loans} onChanged={reload} availableCapital={availableCapital} />}
               {tab === "payments" && <PaymentsTab payments={payments} loans={loans} onChanged={reload} />}
               {tab === "investments" && <InvestmentsTab investments={investments} onChanged={reload} />}
