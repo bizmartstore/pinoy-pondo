@@ -176,7 +176,6 @@ function CalcPage() {
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (<>{user ? "Apply for this loan" : "Sign in to apply"} <ArrowRight className="h-4 w-4" /></>)}
                 </button>
-                </button>
               </div>
             </div>
           </div>
