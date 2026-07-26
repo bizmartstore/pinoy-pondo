@@ -83,15 +83,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "PINOY PONDO — Mabilis. Madali. Maaasahan. Apply for a loan in minutes, track payments, and manage your finances with confidence.",
+          "Apply for a loan in minutes, track your payments, and manage your finances with confidence. Mabilis. Madali. Maaasahan.",
       },
       { property: "og:title", content: "PINOY PONDO — Fast Cash Loans Made Simple" },
       {
         property: "og:description",
-        content: "Your trusted Filipino lending partner. Fast approval, fair rates, transparent schedules.",
+        content: "Apply for a loan in minutes, track your payments, and manage your finances with confidence. Mabilis. Madali. Maaasahan.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "PINOY PONDO — Fast Cash Loans Made Simple" },
+      { name: "twitter:description", content: "Apply for a loan in minutes, track your payments, and manage your finances with confidence. Mabilis. Madali. Maaasahan." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ef7dfe4e-9ca3-4ca2-a8fc-a77d9b647376/id-preview-28a25609--dabc7fda-17b7-460d-9b21-a24a5202ad1a.lovable.app-1785058790683.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ef7dfe4e-9ca3-4ca2-a8fc-a77d9b647376/id-preview-28a25609--dabc7fda-17b7-460d-9b21-a24a5202ad1a.lovable.app-1785058790683.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

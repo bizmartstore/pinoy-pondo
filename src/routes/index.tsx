@@ -28,7 +28,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "PINOY PONDO — Fast Cash Loans Made Simple" },
       {
         property: "og:description",
-        content: "Your trusted Filipino lending partner. Fast approval, fair rates, transparent schedules.",
+        content: "Apply for a loan in minutes, track your payments, and manage your finances with confidence. Mabilis. Madali. Maaasahan.",
       },
     ],
   }),
