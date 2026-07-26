@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
-import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  Wallet, Calendar, TrendingDown, CheckCircle2, Bell, User, Calculator, History, PlusCircle, ArrowRight,
+  Wallet, Calendar, TrendingDown, CheckCircle2, Bell, User, Calculator, History, PlusCircle, ArrowRight, Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -25,33 +26,54 @@ function greeting() {
 }
 
 function Dashboard() {
-  const total = 50000;
-  const paid = 18500;
-  const remaining = total - paid;
-  const pct = Math.round((paid / total) * 100);
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      navigate({ to: "/login", search: { redirect: "/dashboard" } as never });
+    } else {
+      setReady(true);
+    }
+  }, [user, loading, navigate]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <SiteHeader />
+        <div className="flex-1 grid place-items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  const meta = (user!.user_metadata ?? {}) as Record<string, string>;
+  const fullName = meta.full_name || [meta.first_name, meta.last_name].filter(Boolean).join(" ") || user!.email!.split("@")[0];
+  const initials = fullName.split(" ").map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "PP";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
 
-      {/* Welcome */}
       <section className="bg-gradient-hero text-white pt-10 pb-24">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-sm text-white/70">{greeting()},</p>
-              <h1 className="text-2xl md:text-3xl font-black truncate">Juan Dela Cruz 👋</h1>
+              <h1 className="text-2xl md:text-3xl font-black truncate">{fullName} 👋</h1>
               <p className="mt-1 text-sm text-white/70">
-                Welcome back to <span className="text-accent font-semibold">PINOY PONDO</span> — your financial partner.
+                Welcome to <span className="text-accent font-semibold">PINOY PONDO</span> — your financial partner.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button className="h-10 w-10 rounded-full bg-white/10 backdrop-blur border border-white/20 grid place-items-center hover:bg-white/20 transition relative">
+              <button className="h-10 w-10 rounded-full bg-white/10 backdrop-blur border border-white/20 grid place-items-center hover:bg-white/20 transition">
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent" />
               </button>
-              <div className="h-10 w-10 rounded-full bg-gradient-gold grid place-items-center font-bold text-secondary">
-                JD
+              <div className="h-10 w-10 rounded-full bg-gradient-gold grid place-items-center font-bold text-secondary text-sm">
+                {initials}
               </div>
             </div>
           </div>
@@ -59,52 +81,31 @@ function Dashboard() {
       </section>
 
       <div className="mx-auto max-w-6xl w-full px-4 -mt-16 pb-20 space-y-6">
-        {/* Loan hero card */}
-        <div className="rounded-3xl bg-card shadow-elevated border border-border/60 p-6 md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-primary">Current Loan</div>
-              <div className="mt-2 text-4xl md:text-5xl font-black text-secondary tabular-nums">
-                ₱<AnimatedCounter value={remaining} />
-                <span className="text-lg text-muted-foreground">.00</span>
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">Remaining Balance</div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold px-3 py-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Active · On Track
-            </span>
+        {/* No active loan state */}
+        <div className="rounded-3xl bg-card shadow-elevated border border-border/60 p-6 md:p-10 text-center">
+          <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-primary grid place-items-center shadow-glow">
+            <Wallet className="h-7 w-7 text-white" />
+          </div>
+          <h2 className="mt-5 text-2xl md:text-3xl font-black text-secondary">No Active Loan</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+            You don't have any active loan yet. Apply now and get funded fast — with transparent rates and flexible terms.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+            <Link to="/calculator" className="inline-flex items-center justify-center gap-2 rounded-xl bg-muted text-secondary font-semibold h-12 px-6 hover:bg-muted/70 transition">
+              Calculate Loan
+            </Link>
+            <Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary text-white font-semibold h-12 px-6 shadow-glow hover:opacity-95 transition">
+              Apply Now <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
-          <div className="mt-6">
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted-foreground">₱{paid.toLocaleString()} paid of ₱{total.toLocaleString()}</span>
-              <span className="font-bold text-primary">{pct}%</span>
-            </div>
-            <div className="mt-2 h-2.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-gradient-primary transition-all duration-1000"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <MiniStat icon={Wallet} label="Monthly Payment" value="₱8,500" tone="primary" />
-            <MiniStat icon={Calendar} label="Next Due Date" value="Aug 15, 2026" tone="gold" />
-            <MiniStat icon={TrendingDown} label="Term Remaining" value="4 of 6 mos" tone="navy" />
-          </div>
-
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <button className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary text-white font-semibold h-12 shadow-glow hover:opacity-95 transition">
-              Pay Now <ArrowRight className="h-4 w-4" />
-            </button>
-            <button className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-muted text-secondary font-semibold h-12 hover:bg-muted/70 transition">
-              View Payment Schedule
-            </button>
+          <div className="mt-8 grid gap-3 sm:grid-cols-3 text-left">
+            <MiniStat icon={Wallet} label="Total Borrowed" value="₱0.00" tone="primary" />
+            <MiniStat icon={Calendar} label="Next Due Date" value="—" tone="gold" />
+            <MiniStat icon={TrendingDown} label="Active Loans" value="0" tone="navy" />
           </div>
         </div>
 
-        {/* Quick actions */}
         <div>
           <h2 className="text-lg font-black text-secondary mb-3">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -116,34 +117,13 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Recent activity */}
         <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6 md:p-8">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black text-secondary">Recent Payments</h2>
-            <a href="#" className="text-sm text-primary font-semibold hover:underline">View all</a>
           </div>
-          <div className="mt-4 divide-y divide-border">
-            {[
-              { d: "Jul 15, 2026", a: 8500, s: "Paid" },
-              { d: "Jun 15, 2026", a: 8500, s: "Paid" },
-              { d: "May 15, 2026", a: 1500, s: "Partial" },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 text-primary grid place-items-center">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-secondary">Monthly Payment</div>
-                    <div className="text-xs text-muted-foreground">{r.d}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-secondary tabular-nums">₱{r.a.toLocaleString()}.00</div>
-                  <div className={`text-xs font-semibold ${r.s === "Paid" ? "text-primary" : "text-accent"}`}>{r.s}</div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-6 py-10 text-center text-sm text-muted-foreground">
+            <CheckCircle2 className="h-10 w-10 mx-auto text-muted-foreground/40" />
+            <p className="mt-3">No payment history yet.</p>
           </div>
         </div>
       </div>

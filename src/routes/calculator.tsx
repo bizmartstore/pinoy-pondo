@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { Slider } from "@/components/ui/slider";
 import { Calculator as CalcIcon, ArrowRight, Info } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
