@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InvestorRouteImport } from './routes/investor'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -24,6 +25,11 @@ const RegisterRoute = RegisterRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvestorRoute = InvestorRouteImport.update({
+  id: '/investor',
+  path: '/investor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/investor': typeof InvestorRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/investor': typeof InvestorRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/investor': typeof InvestorRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/admin'
     | '/calculator'
     | '/dashboard'
+    | '/investor'
     | '/login'
     | '/register'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/calculator' | '/dashboard' | '/login' | '/register'
+  to:
+    | '/'
+    | '/admin'
+    | '/calculator'
+    | '/dashboard'
+    | '/investor'
+    | '/login'
+    | '/register'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/calculator'
     | '/dashboard'
+    | '/investor'
     | '/login'
     | '/register'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
+  InvestorRoute: typeof InvestorRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
 }
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/investor': {
+      id: '/investor'
+      path: '/investor'
+      fullPath: '/investor'
+      preLoaderRoute: typeof InvestorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -154,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
+  InvestorRoute: InvestorRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
 }
