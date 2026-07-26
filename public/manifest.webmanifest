@@ -1,0 +1,15 @@
+{
+  "name": "PINOY PONDO",
+  "short_name": "PinoyPondo",
+  "description": "Fast, easy, and secure digital lending. Mabilis. Madali. Maaasahan.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0F9D58",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
