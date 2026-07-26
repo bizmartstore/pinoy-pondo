@@ -1,9 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { Slider } from "@/components/ui/slider";
-import { Calculator as CalcIcon, ArrowRight, Info } from "lucide-react";
+import { Calculator as CalcIcon, ArrowRight, Info, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { fetchAll, computeEarnings, peso as pesoFmt } from "@/lib/finance";
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
@@ -24,12 +27,38 @@ function CalcPage() {
   const [amount, setAmount] = useState(20000);
   const [term, setTerm] = useState(6);
   const [rate, setRate] = useState(4);
+  const [availableCapital, setAvailableCapital] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const apply = () => {
-    if (!user) navigate({ to: "/login", search: { redirect: "/register" } as never });
-    else navigate({ to: "/register" });
+  useEffect(() => {
+    (async () => {
+      const { loans, payments, investments } = await fetchAll();
+      const invested = investments.reduce((s, i) => s + Number(i.amount), 0);
+      const collected = payments.reduce((s, p) => s + Number(p.amount), 0);
+      const { lentOut } = computeEarnings(loans);
+      setAvailableCapital(invested + collected - lentOut);
+    })();
+  }, []);
+
+  const apply = async () => {
+    if (!user) { navigate({ to: "/login", search: { redirect: "/calculator" } as never }); return; }
+    if (availableCapital !== null && amount > availableCapital) {
+      toast.error(`Insufficient capital available (${pesoFmt(availableCapital)}). Please try a smaller amount.`);
+      return;
+    }
+    setSubmitting(true);
+    const meta = (user.user_metadata ?? {}) as Record<string, string>;
+    const borrower_name = meta.full_name || [meta.first_name, meta.last_name].filter(Boolean).join(" ") || user.email!;
+    const { error } = await supabase.from("loans").insert({
+      user_id: user.id, amount, term_months: term, interest_rate: rate,
+      status: "pending", borrower_name,
+    });
+    setSubmitting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Loan application submitted!");
+    navigate({ to: "/dashboard" });
   };
 
 
