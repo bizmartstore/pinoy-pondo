@@ -166,11 +166,16 @@ function CalcPage() {
                   <SummaryRow label="Total Repayment" value={peso(total)} bold />
                 </div>
 
+                {availableCapital !== null && (
+                  <div className="mt-4 text-xs text-white/70">Available capital: <span className="font-bold text-accent">{peso(availableCapital)}</span></div>
+                )}
                 <button
                   onClick={apply}
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white text-secondary font-bold px-5 py-3 hover:bg-accent transition"
+                  disabled={submitting}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white text-secondary font-bold px-5 py-3 hover:bg-accent transition disabled:opacity-60"
                 >
-                  {user ? "Apply for this loan" : "Sign in to apply"} <ArrowRight className="h-4 w-4" />
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (<>{user ? "Apply for this loan" : "Sign in to apply"} <ArrowRight className="h-4 w-4" /></>)}
+                </button>
                 </button>
               </div>
             </div>
