@@ -1,38 +1,66 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { useEffect, useMemo, useState } from "react";
 import { Logo } from "@/components/Logo";
-import {
-  Users, Banknote, TrendingUp, AlertCircle, ArrowUpRight, Search, Bell, Settings, LogOut,
-  LayoutDashboard, FileText, CreditCard, BarChart3, ShieldAlert, MoreHorizontal,
-} from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Users, Banknote, TrendingUp, AlertCircle, Wallet, PiggyBank, ArrowDownCircle, ArrowUpCircle,
+  LogOut, LayoutDashboard, FileText, CreditCard, BarChart3, Plus, Loader2, CheckCircle2, XCircle,
+} from "lucide-react";
+import { peso, pesoShort, computeEarnings, fetchAll, type Loan, type Payment, type Investment } from "@/lib/finance";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Admin Console — PINOY PONDO" },
-      { name: "description", content: "Administrator dashboard for PINOY PONDO — manage borrowers, loans, collections, and analytics." },
+      { name: "description", content: "Administrator dashboard for PINOY PONDO." },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: Admin,
 });
 
-const nav = [
-  { icon: LayoutDashboard, label: "Overview", active: true },
-  { icon: Users, label: "Borrowers" },
-  { icon: FileText, label: "Loans" },
-  { icon: CreditCard, label: "Collections" },
-  { icon: Banknote, label: "Payments" },
-  { icon: BarChart3, label: "Reports" },
-  { icon: ShieldAlert, label: "Risk" },
-  { icon: Settings, label: "Settings" },
-];
+type Tab = "overview" | "loans" | "payments" | "investments" | "earnings";
 
 function Admin() {
+  const [tab, setTab] = useState<Tab>("overview");
+  const [loading, setLoading] = useState(true);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
+
+  const reload = async () => {
+    setLoading(true);
+    const { loans, payments, investments, errors } = await fetchAll();
+    if (errors.length) toast.error(errors[0]!.message);
+    setLoans(loans); setPayments(payments); setInvestments(investments);
+    setLoading(false);
+  };
+  useEffect(() => { reload(); }, []);
+
+  const totalInvested = investments.reduce((s, i) => s + Number(i.amount), 0);
+  const totalCollected = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const { totalInterest, investorShare, adminShare, lentOut } = useMemo(() => computeEarnings(loans), [loans]);
+  const activeLoans = loans.filter(l => l.status === "active" || l.status === "approved").length;
+  const overdue = loans.filter(l => l.status === "overdue").length;
+  const availableCapital = totalInvested + totalCollected - lentOut;
+  const uniqueBorrowers = new Set(loans.map(l => l.user_id)).size;
+
+  const nav: { key: Tab; icon: typeof LayoutDashboard; label: string }[] = [
+    { key: "overview", icon: LayoutDashboard, label: "Overview" },
+    { key: "loans", icon: FileText, label: "Loans" },
+    { key: "payments", icon: CreditCard, label: "Payments" },
+    { key: "investments", icon: PiggyBank, label: "Investments" },
+    { key: "earnings", icon: BarChart3, label: "Earnings" },
+  ];
+
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-secondary text-white">
         <div className="h-16 px-5 flex items-center border-b border-white/10">
           <Logo size="md" variant="light" />
@@ -40,214 +68,498 @@ function Admin() {
         <nav className="flex-1 p-3 space-y-1">
           {nav.map((n) => {
             const Icon = n.icon;
+            const active = tab === n.key;
             return (
-              <button
-                key={n.label}
+              <button key={n.key} onClick={() => setTab(n.key)}
                 className={`w-full flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition ${
-                  n.active
-                    ? "bg-gradient-primary text-white shadow-glow"
-                    : "text-white/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
+                  active ? "bg-gradient-primary text-white shadow-glow" : "text-white/70 hover:bg-white/5 hover:text-white"
+                }`}>
                 <Icon className="h-4 w-4" /> {n.label}
               </button>
             );
           })}
         </nav>
         <div className="p-3 border-t border-white/10">
-          <Link
-            to="/"
-            className="w-full flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition"
-          >
+          <Link to="/" className="w-full flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition">
             <LogOut className="h-4 w-4" /> Exit Admin
           </Link>
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Topbar */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur flex items-center px-4 md:px-8 gap-4 sticky top-0 z-30">
-          <div className="lg:hidden">
-            <Logo size="sm" />
-          </div>
-          <div className="hidden md:flex flex-1 max-w-md relative">
-            <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input placeholder="Search borrowers, loans, transactions…" className="pl-9 h-10 rounded-xl bg-muted border-transparent" />
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button className="h-10 w-10 rounded-full grid place-items-center hover:bg-muted transition relative">
-              <Bell className="h-4 w-4 text-secondary" />
-              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive" />
-            </button>
-            <div className="h-10 w-10 rounded-full bg-gradient-gold grid place-items-center font-bold text-secondary">
-              AD
-            </div>
+          <div className="lg:hidden"><Logo size="sm" /></div>
+          <div className="ml-auto flex items-center gap-2 overflow-x-auto lg:hidden">
+            {nav.map((n) => (
+              <button key={n.key} onClick={() => setTab(n.key)}
+                className={`shrink-0 text-xs font-semibold rounded-full px-3 py-1.5 border transition ${
+                  tab === n.key ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-transparent"
+                }`}>{n.label}</button>
+            ))}
           </div>
         </header>
 
         <main className="p-4 md:p-8 space-y-6">
-          {/* Header */}
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-primary">Admin Console</div>
-              <h1 className="mt-1 text-2xl md:text-3xl font-black text-secondary">Business Overview</h1>
-              <p className="text-sm text-muted-foreground">Real-time metrics across your lending operations.</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="rounded-xl bg-muted px-4 h-10 text-sm font-semibold text-secondary hover:bg-muted/70 transition">
-                Export
-              </button>
-              <button className="rounded-xl bg-gradient-primary text-white px-4 h-10 text-sm font-semibold shadow-glow hover:opacity-95 transition">
-                + New Loan
-              </button>
-            </div>
-          </div>
-
-          {/* KPI cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KPI icon={Users} label="Total Borrowers" value={2847} suffix="" trend="+12.4%" tone="primary" />
-            <KPI icon={Banknote} label="Active Loans" value={1284} suffix="" trend="+8.2%" tone="gold" />
-            <KPI icon={TrendingUp} label="Monthly Collections" value={4820000} prefix="₱" trend="+18.6%" tone="primary" />
-            <KPI icon={AlertCircle} label="Overdue Accounts" value={62} trend="-3.1%" tone="danger" negative />
-          </div>
-
-          {/* Chart + list */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 rounded-3xl bg-card shadow-card border border-border/60 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-black text-secondary">Loan Disbursements</h3>
-                  <p className="text-xs text-muted-foreground">Last 8 months</p>
-                </div>
-                <button className="h-8 w-8 rounded-lg grid place-items-center hover:bg-muted">
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-              <div className="mt-6 flex items-end gap-3 h-52">
-                {[45, 62, 55, 78, 68, 92, 85, 100].map((h, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div
-                      className="w-full rounded-t-xl bg-gradient-primary shadow-glow hover:opacity-90 transition"
-                      style={{ height: `${h}%` }}
-                    />
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {["Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"][i]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
-              <h3 className="font-black text-secondary">Portfolio Health</h3>
-              <p className="text-xs text-muted-foreground">Live snapshot</p>
-              <div className="mt-6 space-y-4">
-                <HealthBar label="On Track" value={78} tone="bg-primary" />
-                <HealthBar label="Grace Period" value={14} tone="bg-accent" />
-                <HealthBar label="Overdue 30d+" value={5} tone="bg-orange-500" />
-                <HealthBar label="Default" value={3} tone="bg-destructive" />
-              </div>
-              <div className="mt-6 rounded-2xl bg-primary/5 border border-primary/20 p-4">
-                <div className="text-xs font-bold uppercase tracking-widest text-primary">Repayment Rate</div>
-                <div className="text-3xl font-black text-secondary mt-1">96.4%</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent borrowers */}
-          <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-black text-secondary">Recent Applications</h3>
-              <a href="#" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
-                View all <ArrowUpRight className="h-3.5 w-3.5" />
-              </a>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                    <th className="py-3 pr-4 font-semibold">Borrower</th>
-                    <th className="py-3 px-4 font-semibold">Amount</th>
-                    <th className="py-3 px-4 font-semibold">Term</th>
-                    <th className="py-3 px-4 font-semibold">Applied</th>
-                    <th className="py-3 pl-4 font-semibold text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    { n: "Maria Santos", a: 25000, t: "6 mo", d: "2h ago", s: "Approved", tone: "bg-primary/10 text-primary" },
-                    { n: "Pedro Ramos", a: 50000, t: "12 mo", d: "4h ago", s: "Review", tone: "bg-accent/20 text-accent-foreground" },
-                    { n: "Ana Reyes", a: 15000, t: "3 mo", d: "6h ago", s: "Approved", tone: "bg-primary/10 text-primary" },
-                    { n: "Jose Cruz", a: 80000, t: "18 mo", d: "1d ago", s: "Pending", tone: "bg-muted text-muted-foreground" },
-                    { n: "Liza Aquino", a: 10000, t: "3 mo", d: "1d ago", s: "Rejected", tone: "bg-destructive/10 text-destructive" },
-                  ].map((r) => (
-                    <tr key={r.n} className="hover:bg-muted/40 transition">
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-gradient-primary grid place-items-center text-white text-xs font-bold">
-                            {r.n.split(" ").map((x) => x[0]).join("")}
-                          </div>
-                          <div className="font-semibold text-secondary">{r.n}</div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 tabular-nums font-semibold text-secondary">₱{r.a.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{r.t}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{r.d}</td>
-                      <td className="py-3 pl-4 text-right">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${r.tone}`}>{r.s}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {loading ? (
+            <div className="grid place-items-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <>
+              {tab === "overview" && (
+                <Overview
+                  uniqueBorrowers={uniqueBorrowers}
+                  activeLoans={activeLoans}
+                  totalCollected={totalCollected}
+                  overdue={overdue}
+                  availableCapital={availableCapital}
+                  lentOut={lentOut}
+                  totalInvested={totalInvested}
+                  loans={loans}
+                />
+              )}
+              {tab === "loans" && <LoansTab loans={loans} onChanged={reload} availableCapital={availableCapital} />}
+              {tab === "payments" && <PaymentsTab payments={payments} loans={loans} onChanged={reload} />}
+              {tab === "investments" && <InvestmentsTab investments={investments} onChanged={reload} />}
+              {tab === "earnings" && (
+                <EarningsTab
+                  totalInterest={totalInterest} investorShare={investorShare} adminShare={adminShare}
+                  totalInvested={totalInvested} totalCollected={totalCollected}
+                  lentOut={lentOut} availableCapital={availableCapital} loans={loans}
+                />
+              )}
+            </>
+          )}
         </main>
       </div>
     </div>
   );
 }
 
-function KPI({
-  icon: Icon, label, value, prefix = "", suffix = "", trend, tone, negative,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string; value: number; prefix?: string; suffix?: string;
-  trend: string; tone: "primary" | "gold" | "danger"; negative?: boolean;
+function KPI({ icon: Icon, label, value, tone }: {
+  icon: React.ComponentType<{ className?: string }>; label: string; value: string;
+  tone: "primary" | "gold" | "danger" | "navy";
 }) {
   const toneMap = {
     primary: "bg-primary/10 text-primary",
     gold: "bg-accent/20 text-accent-foreground",
     danger: "bg-destructive/10 text-destructive",
+    navy: "bg-secondary/10 text-secondary",
   };
   return (
-    <div className="rounded-3xl bg-card shadow-card border border-border/60 p-5 hover:shadow-elevated hover:-translate-y-0.5 transition-all">
-      <div className="flex items-center justify-between">
-        <div className={`h-10 w-10 rounded-xl grid place-items-center ${toneMap[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className={`text-xs font-bold ${negative ? "text-destructive" : "text-primary"}`}>{trend}</span>
-      </div>
-      <div className="mt-4 text-2xl font-black text-secondary tabular-nums">
-        {prefix}
-        <AnimatedCounter value={value} suffix={suffix} />
-      </div>
+    <div className="rounded-3xl bg-card shadow-card border border-border/60 p-5">
+      <div className={`h-10 w-10 rounded-xl grid place-items-center ${toneMap[tone]}`}><Icon className="h-5 w-5" /></div>
+      <div className="mt-4 text-2xl font-black text-secondary tabular-nums">{value}</div>
       <div className="text-xs text-muted-foreground font-medium mt-1">{label}</div>
     </div>
   );
 }
 
-function HealthBar({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Overview(props: {
+  uniqueBorrowers: number; activeLoans: number; totalCollected: number; overdue: number;
+  availableCapital: number; lentOut: number; totalInvested: number; loans: Loan[];
+}) {
+  const recent = props.loans.slice(0, 8);
   return (
-    <div>
-      <div className="flex justify-between text-xs mb-1.5">
-        <span className="text-muted-foreground font-medium">{label}</span>
-        <span className="font-bold text-secondary">{value}%</span>
+    <>
+      <div>
+        <div className="text-xs font-bold uppercase tracking-widest text-primary">Admin Console</div>
+        <h1 className="mt-1 text-2xl md:text-3xl font-black text-secondary">Business Overview</h1>
+        <p className="text-sm text-muted-foreground">Live metrics from your Supabase project.</p>
       </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div className={`h-full ${tone} rounded-full transition-all`} style={{ width: `${value}%` }} />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KPI icon={Users} label="Total Borrowers" value={String(props.uniqueBorrowers)} tone="primary" />
+        <KPI icon={Banknote} label="Active Loans" value={String(props.activeLoans)} tone="gold" />
+        <KPI icon={TrendingUp} label="Total Collections" value={peso(props.totalCollected)} tone="primary" />
+        <KPI icon={AlertCircle} label="Overdue Accounts" value={String(props.overdue)} tone="danger" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KPI icon={Wallet} label="Available Capital" value={peso(props.availableCapital)} tone="primary" />
+        <KPI icon={ArrowUpCircle} label="Lent Out" value={peso(props.lentOut)} tone="navy" />
+        <KPI icon={PiggyBank} label="Total Invested" value={peso(props.totalInvested)} tone="gold" />
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+        <h3 className="font-black text-secondary">Recent Loans</h3>
+        {recent.length === 0 ? (
+          <div className="mt-8 text-center text-sm text-muted-foreground py-8">No loans yet.</div>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <th className="py-3 pr-4">Borrower</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Term</th>
+                  <th className="py-3 px-4">Created</th>
+                  <th className="py-3 pl-4 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recent.map((l) => (
+                  <tr key={l.id}>
+                    <td className="py-3 pr-4 font-semibold text-secondary">{l.borrower_name ?? l.user_id.slice(0, 8)}</td>
+                    <td className="py-3 px-4 tabular-nums font-semibold text-secondary">{peso(Number(l.amount))}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{l.term_months} mo</td>
+                    <td className="py-3 px-4 text-muted-foreground">{new Date(l.created_at).toLocaleDateString()}</td>
+                    <td className="py-3 pl-4 text-right"><StatusPill status={l.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function StatusPill({ status }: { status: Loan["status"] }) {
+  const map: Record<Loan["status"], string> = {
+    approved: "bg-primary/10 text-primary",
+    active: "bg-primary/10 text-primary",
+    pending: "bg-muted text-muted-foreground",
+    paid: "bg-accent/20 text-accent-foreground",
+    rejected: "bg-destructive/10 text-destructive",
+    overdue: "bg-destructive/10 text-destructive",
+  };
+  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${map[status]}`}>{status}</span>;
+}
+
+function LoansTab({ loans, onChanged, availableCapital }: { loans: Loan[]; onChanged: () => void; availableCapital: number }) {
+  const setStatus = async (id: string, status: Loan["status"], amount?: number) => {
+    if (status === "approved" && amount && amount > availableCapital) {
+      toast.error(`Insufficient capital. Available: ${peso(availableCapital)}`); return;
+    }
+    const patch: Partial<Loan> = { status };
+    if (status === "approved") patch.approved_at = new Date().toISOString();
+    const { error } = await supabase.from("loans").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(`Loan ${status}`); onChanged();
+  };
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-secondary">Loans</h1>
+          <p className="text-sm text-muted-foreground">Available capital: <span className="font-bold text-primary">{peso(availableCapital)}</span></p>
+        </div>
+      </div>
+      <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+        {loans.length === 0 ? (
+          <EmptyState label="No loan applications yet." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <th className="py-3 pr-4">Borrower</th><th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Term</th><th className="py-3 px-4">Rate</th>
+                  <th className="py-3 px-4">Status</th><th className="py-3 pl-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {loans.map((l) => (
+                  <tr key={l.id}>
+                    <td className="py-3 pr-4 font-semibold text-secondary">{l.borrower_name ?? l.user_id.slice(0, 8)}</td>
+                    <td className="py-3 px-4 tabular-nums">{peso(Number(l.amount))}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{l.term_months} mo</td>
+                    <td className="py-3 px-4 text-muted-foreground">{l.interest_rate}%/mo</td>
+                    <td className="py-3 px-4"><StatusPill status={l.status} /></td>
+                    <td className="py-3 pl-4 text-right space-x-1">
+                      {l.status === "pending" && (
+                        <>
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => setStatus(l.id, "approved", Number(l.amount))}>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => setStatus(l.id, "rejected")}>
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {(l.status === "approved" || l.status === "active") && (
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => setStatus(l.id, "paid")}>Mark Paid</Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function PaymentsTab({ payments, loans, onChanged }: { payments: Payment[]; loans: Loan[]; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loanId, setLoanId] = useState<string>("");
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("cash");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const payableLoans = loans.filter(l => l.status === "approved" || l.status === "active" || l.status === "overdue");
+
+  const submit = async () => {
+    if (!loanId) return toast.error("Select a loan");
+    const n = Number(amount);
+    if (!n || n <= 0) return toast.error("Enter valid amount");
+    setSaving(true);
+    const { data: sess } = await supabase.auth.getUser();
+    const { error } = await supabase.from("payments").insert({
+      loan_id: loanId, amount: n, method, note: note || null, recorded_by: sess.user?.id ?? null,
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Payment recorded");
+    setOpen(false); setLoanId(""); setAmount(""); setMethod("cash"); setNote("");
+    onChanged();
+  };
+
+  const loanLabel = (id: string) => {
+    const l = loans.find(x => x.id === id);
+    return l ? `${l.borrower_name ?? l.user_id.slice(0, 8)} — ${peso(Number(l.amount))}` : id.slice(0, 8);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black text-secondary">Payments</h1>
+          <p className="text-sm text-muted-foreground">Record manual/off-platform payments.</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-primary text-white shadow-glow"><Plus className="h-4 w-4 mr-1.5" />Add Manual Payment</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Record Manual Payment</DialogTitle></DialogHeader>
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-semibold text-secondary">Loan</label>
+                <Select value={loanId} onValueChange={setLoanId}>
+                  <SelectTrigger><SelectValue placeholder="Select loan" /></SelectTrigger>
+                  <SelectContent>
+                    {payableLoans.length === 0 && <div className="text-sm text-muted-foreground p-3">No active loans</div>}
+                    {payableLoans.map(l => (
+                      <SelectItem key={l.id} value={l.id}>{loanLabel(l.id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">Amount (₱)</label>
+                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">Method</label>
+                <Select value={method} onValueChange={setMethod}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="gcash">GCash</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="maya">Maya</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">Note (optional)</label>
+                <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+              </div>
+              <Button onClick={submit} disabled={saving} className="w-full bg-gradient-primary">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record Payment"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+        {payments.length === 0 ? (
+          <EmptyState label="No payments recorded yet." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <th className="py-3 pr-4">Date</th><th className="py-3 px-4">Loan</th>
+                  <th className="py-3 px-4">Method</th><th className="py-3 px-4">Note</th>
+                  <th className="py-3 pl-4 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {payments.map(p => (
+                  <tr key={p.id}>
+                    <td className="py-3 pr-4 text-muted-foreground">{new Date(p.paid_at).toLocaleString()}</td>
+                    <td className="py-3 px-4 font-semibold text-secondary">{loanLabel(p.loan_id)}</td>
+                    <td className="py-3 px-4 text-muted-foreground uppercase text-xs">{p.method}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{p.note ?? "—"}</td>
+                    <td className="py-3 pl-4 text-right tabular-nums font-bold text-primary">{peso(Number(p.amount))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InvestmentsTab({ investments, onChanged }: { investments: Investment[]; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("Investor name required");
+    const n = Number(amount);
+    if (!n || n <= 0) return toast.error("Enter valid amount");
+    setSaving(true);
+    const { error } = await supabase.from("investments").insert({
+      investor_name: name.trim(), amount: n, note: note || null,
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Investment added");
+    setOpen(false); setName(""); setAmount(""); setNote("");
+    onChanged();
+  };
+
+  const total = investments.reduce((s, i) => s + Number(i.amount), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black text-secondary">Investments</h1>
+          <p className="text-sm text-muted-foreground">Total invested capital: <span className="font-bold text-primary">{peso(total)}</span></p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-primary text-white shadow-glow"><Plus className="h-4 w-4 mr-1.5" />Add Investment</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>New Investor Contribution</DialogTitle></DialogHeader>
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-semibold text-secondary">Investor Name</label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Juan dela Cruz" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">Amount (₱)</label>
+                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">Note (optional)</label>
+                <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+              </div>
+              <Button onClick={submit} disabled={saving} className="w-full bg-gradient-primary">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Investment"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+        {investments.length === 0 ? (
+          <EmptyState label="No investments recorded yet." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <th className="py-3 pr-4">Date</th><th className="py-3 px-4">Investor</th>
+                  <th className="py-3 px-4">Note</th><th className="py-3 pl-4 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {investments.map(i => (
+                  <tr key={i.id}>
+                    <td className="py-3 pr-4 text-muted-foreground">{new Date(i.created_at).toLocaleDateString()}</td>
+                    <td className="py-3 px-4 font-semibold text-secondary">{i.investor_name}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{i.note ?? "—"}</td>
+                    <td className="py-3 pl-4 text-right tabular-nums font-bold text-primary">{peso(Number(i.amount))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EarningsTab({ totalInterest, investorShare, adminShare, totalInvested, totalCollected, lentOut, availableCapital, loans }: {
+  totalInterest: number; investorShare: number; adminShare: number;
+  totalInvested: number; totalCollected: number; lentOut: number; availableCapital: number; loans: Loan[];
+}) {
+  const activeLoans = loans.filter(l => l.status === "active" || l.status === "approved");
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-secondary">Earnings Breakdown</h1>
+        <p className="text-sm text-muted-foreground">Interest is split 50/50 — 2% investor · 2% admin (of 4% monthly).</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KPI icon={TrendingUp} label="Projected Interest (all loans)" value={peso(totalInterest)} tone="primary" />
+        <KPI icon={PiggyBank} label="Investor Share (50%)" value={peso(investorShare)} tone="gold" />
+        <KPI icon={Wallet} label="Admin Share (50%)" value={peso(adminShare)} tone="navy" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KPI icon={PiggyBank} label="Total Invested" value={peso(totalInvested)} tone="gold" />
+        <KPI icon={ArrowDownCircle} label="Collections" value={peso(totalCollected)} tone="primary" />
+        <KPI icon={ArrowUpCircle} label="Lent Out" value={peso(lentOut)} tone="navy" />
+        <KPI icon={Wallet} label="Available Capital" value={peso(availableCapital)} tone="primary" />
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+        <h3 className="font-black text-secondary mb-4">Per-loan interest split</h3>
+        {activeLoans.length === 0 ? (
+          <EmptyState label="No active loans." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <th className="py-3 pr-4">Borrower</th><th className="py-3 px-4">Principal</th>
+                  <th className="py-3 px-4">Term</th><th className="py-3 px-4">Interest</th>
+                  <th className="py-3 px-4">Investor 2%</th><th className="py-3 pl-4 text-right">Admin 2%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {activeLoans.map(l => {
+                  const interest = Number(l.amount) * (Number(l.interest_rate) / 100) * Number(l.term_months);
+                  return (
+                    <tr key={l.id}>
+                      <td className="py-3 pr-4 font-semibold text-secondary">{l.borrower_name ?? l.user_id.slice(0, 8)}</td>
+                      <td className="py-3 px-4 tabular-nums">{peso(Number(l.amount))}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{l.term_months} mo</td>
+                      <td className="py-3 px-4 tabular-nums font-semibold text-primary">{peso(interest)}</td>
+                      <td className="py-3 px-4 tabular-nums text-accent-foreground">{peso(interest / 2)}</td>
+                      <td className="py-3 pl-4 text-right tabular-nums text-secondary font-bold">{peso(interest / 2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <div className="py-12 text-center text-sm text-muted-foreground">{label}</div>;
 }
