@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Users, Banknote, TrendingUp, AlertCircle, Wallet, PiggyBank, ArrowDownCircle, ArrowUpCircle,
-  LogOut, LayoutDashboard, FileText, CreditCard, BarChart3, Plus, Loader2, CheckCircle2, XCircle,
+  LogOut, LayoutDashboard, FileText, CreditCard, BarChart3, Plus, Loader2, CheckCircle2, XCircle, UserCheck,
 } from "lucide-react";
 import { peso, pesoShort, computeEarnings, fetchAll, type Loan, type Payment, type Investment } from "@/lib/finance";
 
