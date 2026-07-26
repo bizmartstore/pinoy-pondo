@@ -25,7 +25,26 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-type Tab = "overview" | "loans" | "payments" | "investments" | "earnings";
+type Tab = "overview" | "approvals" | "loans" | "payments" | "investments" | "earnings";
+
+type PendingProfile = {
+  id: string;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  mobile: string | null;
+  address: string | null;
+  employer: string | null;
+  job_title: string | null;
+  monthly_income: number | null;
+  id_type: string | null;
+  id_number: string | null;
+  id_photo_url: string | null;
+  selfie_url: string | null;
+  approval_status: string;
+  created_at: string;
+};
 
 function Admin() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -33,12 +52,18 @@ function Admin() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [profiles, setProfiles] = useState<PendingProfile[]>([]);
 
   const reload = async () => {
     setLoading(true);
-    const { loans, payments, investments, errors } = await fetchAll();
+    const [{ loans, payments, investments, errors }, profRes] = await Promise.all([
+      fetchAll(),
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+    ]);
     if (errors.length) toast.error(errors[0]!.message);
+    if (profRes.error) toast.error(profRes.error.message);
     setLoans(loans); setPayments(payments); setInvestments(investments);
+    setProfiles((profRes.data ?? []) as PendingProfile[]);
     setLoading(false);
   };
   useEffect(() => { reload(); }, []);
@@ -50,9 +75,11 @@ function Admin() {
   const overdue = loans.filter(l => l.status === "overdue").length;
   const availableCapital = totalInvested + totalCollected - lentOut;
   const uniqueBorrowers = new Set(loans.map(l => l.user_id)).size;
+  const pendingCount = profiles.filter(p => p.approval_status === "pending").length;
 
-  const nav: { key: Tab; icon: typeof LayoutDashboard; label: string }[] = [
+  const nav: { key: Tab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
     { key: "overview", icon: LayoutDashboard, label: "Overview" },
+    { key: "approvals", icon: UserCheck, label: "Approvals", badge: pendingCount },
     { key: "loans", icon: FileText, label: "Loans" },
     { key: "payments", icon: CreditCard, label: "Payments" },
     { key: "investments", icon: PiggyBank, label: "Investments" },
