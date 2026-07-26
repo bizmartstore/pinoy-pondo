@@ -592,3 +592,141 @@ function EarningsTab({ totalInterest, investorShare, adminShare, totalInvested, 
 function EmptyState({ label }: { label: string }) {
   return <div className="py-12 text-center text-sm text-muted-foreground">{label}</div>;
 }
+
+function ApprovalsTab({ profiles, onChanged }: { profiles: PendingProfile[]; onChanged: () => void }) {
+  const [filter, setFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; label: string } | null>(null);
+
+  const filtered = profiles.filter((p) => filter === "all" || p.approval_status === filter);
+
+  const decide = async (id: string, status: "approved" | "rejected") => {
+    setBusy(id);
+    const patch: Record<string, unknown> = { approval_status: status };
+    if (status === "approved") patch.approved_at = new Date().toISOString();
+    if (status === "rejected") {
+      const reason = window.prompt("Reason for rejection (optional):", "") ?? "";
+      patch.rejected_reason = reason || null;
+    }
+    const { error } = await supabase.from("profiles").update(patch).eq("id", id);
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Applicant ${status}`);
+    onChanged();
+  };
+
+  const counts = {
+    pending: profiles.filter((p) => p.approval_status === "pending").length,
+    approved: profiles.filter((p) => p.approval_status === "approved").length,
+    rejected: profiles.filter((p) => p.approval_status === "rejected").length,
+    all: profiles.length,
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-black text-secondary">Account Approvals</h1>
+        <p className="text-sm text-muted-foreground">Review new applicants and approve their access to sign in.</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(["pending", "approved", "rejected", "all"] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k)}
+            className={`text-xs font-semibold rounded-full px-3 py-1.5 border capitalize transition ${
+              filter === k ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-transparent"
+            }`}
+          >
+            {k} ({counts[k]})
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4">
+        {filtered.length === 0 ? (
+          <div className="rounded-3xl bg-card shadow-card border border-border/60 p-6">
+            <EmptyState label={`No ${filter} applicants.`} />
+          </div>
+        ) : (
+          filtered.map((p) => (
+            <div key={p.id} className="rounded-3xl bg-card shadow-card border border-border/60 p-5 md:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="font-black text-secondary text-lg">
+                    {p.full_name || `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "—"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{p.email} · {p.mobile}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    Applied {new Date(p.created_at).toLocaleString()}
+                  </div>
+                </div>
+                <StatusPill status={p.approval_status === "approved" ? "approved" : p.approval_status === "rejected" ? "rejected" : "pending"} />
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+                <Info k="Address" v={p.address} />
+                <Info k="Employer" v={p.employer} />
+                <Info k="Job Title" v={p.job_title} />
+                <Info k="Monthly Income" v={p.monthly_income ? peso(Number(p.monthly_income)) : null} />
+                <Info k="ID Type" v={p.id_type} />
+                <Info k="ID Number" v={p.id_number} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <IdThumb label="ID Photo" url={p.id_photo_url} onOpen={(u) => setPreview({ url: u, label: "ID Photo" })} />
+                <IdThumb label="Selfie with ID" url={p.selfie_url} onOpen={(u) => setPreview({ url: u, label: "Selfie" })} />
+              </div>
+
+              {p.approval_status === "pending" && (
+                <div className="mt-5 flex flex-wrap gap-2 justify-end">
+                  <Button variant="outline" onClick={() => decide(p.id, "rejected")} disabled={busy === p.id}>
+                    <XCircle className="h-4 w-4 mr-1.5" /> Reject
+                  </Button>
+                  <Button className="bg-gradient-primary text-white shadow-glow" onClick={() => decide(p.id, "approved")} disabled={busy === p.id}>
+                    {busy === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve</>}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{preview?.label}</DialogTitle></DialogHeader>
+          {preview && <img src={preview.url} alt={preview.label} className="w-full rounded-xl" />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function Info({ k, v }: { k: string; v: string | number | null | undefined }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-border/60 py-1.5">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="font-semibold text-secondary text-right break-all">{v || "—"}</span>
+    </div>
+  );
+}
+
+function IdThumb({ label, url, onOpen }: { label: string; url: string | null; onOpen: (u: string) => void }) {
+  if (!url) {
+    return (
+      <div className="rounded-2xl border-2 border-dashed border-border h-32 grid place-items-center text-xs text-muted-foreground">
+        No {label}
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={() => onOpen(url)} className="group rounded-2xl overflow-hidden border border-border relative">
+      <img src={url} alt={label} className="w-full h-32 object-cover group-hover:scale-105 transition" />
+      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[10px] font-semibold uppercase tracking-wider px-2 py-1">
+        {label}
+      </div>
+    </button>
+  );
+}
+
