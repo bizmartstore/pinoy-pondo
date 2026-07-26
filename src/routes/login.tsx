@@ -3,8 +3,9 @@ import { useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Phone, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -20,25 +21,34 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const [show, setShow] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !pw) {
-      toast.error("Please enter your phone and password");
+    if (!email || !pw) {
+      toast.error("Please enter your email and password");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
       return;
     }
     toast.success("Welcome back!");
-    navigate({ to: "/dashboard" });
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect") || "/dashboard";
+    navigate({ to: redirect });
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
       <section className="flex-1 grid md:grid-cols-2">
-        {/* Visual side */}
         <div className="hidden md:flex relative overflow-hidden bg-gradient-hero text-white p-12 items-center">
           <div className="absolute inset-0 opacity-40 pointer-events-none">
             <div className="absolute top-10 -left-10 h-72 w-72 rounded-full bg-primary/40 blur-3xl" />
@@ -61,20 +71,20 @@ function LoginPage() {
           </div>
         </div>
 
-        {/* Form side */}
         <div className="flex items-center justify-center px-4 py-16">
           <div className="w-full max-w-sm">
             <h1 className="text-3xl font-black text-secondary">Welcome Back</h1>
             <p className="mt-2 text-sm text-muted-foreground">Sign in to your PINOY PONDO account.</p>
 
             <form onSubmit={submit} className="mt-8 space-y-4">
-              <Field icon={Phone} label="Phone Number">
+              <Field icon={Mail} label="Email Address">
                 <Input
-                  type="tel"
-                  placeholder="+63 917 000 0000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  type="email"
+                  placeholder="juan@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-12 rounded-xl"
+                  autoComplete="email"
                 />
               </Field>
 
@@ -85,6 +95,7 @@ function LoginPage() {
                   value={pw}
                   onChange={(e) => setPw(e.target.value)}
                   className="pl-10 pr-10 h-12 rounded-xl"
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -105,9 +116,10 @@ function LoginPage() {
 
               <button
                 type="submit"
-                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary text-white font-semibold h-12 shadow-glow hover:opacity-95 transition"
+                disabled={loading}
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary text-white font-semibold h-12 shadow-glow hover:opacity-95 transition disabled:opacity-60"
               >
-                Sign In <ArrowRight className="h-4 w-4" />
+                {loading ? "Signing in..." : (<>Sign In <ArrowRight className="h-4 w-4" /></>)}
               </button>
 
               <p className="text-center text-sm text-muted-foreground">

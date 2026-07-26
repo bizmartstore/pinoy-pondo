@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
 import { Slider } from "@/components/ui/slider";
 import { Calculator as CalcIcon, ArrowRight, Info } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
@@ -23,6 +24,15 @@ function CalcPage() {
   const [amount, setAmount] = useState(20000);
   const [term, setTerm] = useState(6);
   const [rate, setRate] = useState(4);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const apply = () => {
+    if (!user) navigate({ to: "/login", search: { redirect: "/register" } as never });
+    else navigate({ to: "/register" });
+  };
+
+
 
   const { principal, interest, monthly, total } = useMemo(() => {
     const principal = amount;
@@ -127,12 +137,12 @@ function CalcPage() {
                   <SummaryRow label="Total Repayment" value={peso(total)} bold />
                 </div>
 
-                <Link
-                  to="/register"
+                <button
+                  onClick={apply}
                   className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white text-secondary font-bold px-5 py-3 hover:bg-accent transition"
                 >
-                  Apply for this loan <ArrowRight className="h-4 w-4" />
-                </Link>
+                  {user ? "Apply for this loan" : "Sign in to apply"} <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </div>
