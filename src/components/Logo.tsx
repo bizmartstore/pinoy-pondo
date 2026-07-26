@@ -54,10 +54,13 @@ export function Logo({
 
   const submit = () => {
     if (passcode === "ADMIN_08") {
-      setOpen(false);
-      setPasscode("");
-      toast.success("Access granted");
+      setOpen(false); setPasscode("");
+      toast.success("Admin access granted");
       navigate({ to: "/admin" });
+    } else if (passcode === "PITF_08") {
+      setOpen(false); setPasscode("");
+      toast.success("Investor access granted");
+      navigate({ to: "/investor" });
     } else {
       toast.error("Incorrect passcode");
       setPasscode("");
