@@ -13,6 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import { SiteHeader, SiteFooter } from "@/components/SiteChrome";
+import { FAQSection } from "@/components/FAQSection";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Logo } from "@/components/Logo";
 
@@ -198,6 +199,8 @@ function Home() {
           </div>
         </div>
       </section>
+
+      <FAQSection />
 
       <SiteFooter />
     </div>

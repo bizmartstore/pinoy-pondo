@@ -71,7 +71,10 @@ export function SiteFooter() {
         </div>
         <FooterCol title="Company" items={["About PINOY PONDO", "Contact Us", "Careers", "Blog"]} />
         <FooterCol title="Legal" items={["Privacy Policy", "Terms & Conditions", "Responsible Lending Notice", "Data Protection"]} />
-        <FooterCol title="Support" items={["Help Center", "Loan Calculator", "Payment Guide", "FAQs"]} />
+        <FooterCol
+          title="Support"
+          items={["Help Center", "Loan Calculator", "Payment Guide", { label: "FAQs", href: "/#faq" }]}
+        />
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-6xl px-4 py-5 text-xs text-white/50 flex flex-wrap items-center justify-between gap-2">
@@ -83,18 +86,22 @@ export function SiteFooter() {
   );
 }
 
-function FooterCol({ title, items }: { title: string; items: string[] }) {
+function FooterCol({ title, items }: { title: string; items: Array<string | { label: string; href: string }> }) {
   return (
     <div>
       <h4 className="text-white font-semibold mb-4 text-sm">{title}</h4>
       <ul className="space-y-2.5 text-sm">
-        {items.map((i) => (
-          <li key={i}>
-            <a href="#" className="text-white/60 hover:text-accent transition">
-              {i}
-            </a>
-          </li>
-        ))}
+        {items.map((i) => {
+          const label = typeof i === "string" ? i : i.label;
+          const href = typeof i === "string" ? "#" : i.href;
+          return (
+            <li key={label}>
+              <a href={href} className="text-white/60 hover:text-accent transition">
+                {label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
